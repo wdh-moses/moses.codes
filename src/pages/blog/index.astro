@@ -1,0 +1,162 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+// Get unique categories
+const allCategories = [...new Set(posts.flatMap(post => post.data.categories))];
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function getCategorySlug(category: string): string {
+  return category.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and');
+}
+---
+
+<BaseLayout
+  title="Blog"
+  description="Thoughts on AI, software engineering, and building things that matter. From the desk of Moses."
+>
+  <div class="min-h-screen">
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-50 backdrop-blur-md bg-[#E8F6FA]/80 border-b border-[#B8D4F1]/30">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <a href="/" class="text-2xl font-extrabold text-[#1a2833] hover:text-[#4DA8D6] transition-colors">
+          Moses<span class="text-[#4DA8D6]">.codes</span>
+        </a>
+        <nav class="flex items-center gap-6">
+          <a href="/" class="text-[#5a7a8a] hover:text-[#4DA8D6] font-semibold transition-colors">Home</a>
+          <a href="/blog" class="text-[#4DA8D6] font-bold transition-colors">Blog</a>
+          <a href="https://github.com/wdh-moses" target="_blank" rel="noopener" class="text-[#5a7a8a] hover:text-[#4DA8D6] transition-colors" aria-label="GitHub">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.28-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Blog Hero -->
+    <section class="pt-16 pb-8 px-4 sm:px-6">
+      <div class="max-w-5xl mx-auto text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-[#E0F4FB] rounded-full text-sm font-bold text-[#2E8BC0] mb-6">
+          <span class="text-lg">✍️</span>
+          The Blog
+        </div>
+        <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-[#1a2833] mb-4">
+          Thoughts & <span class="text-[#4DA8D6]">Experiments</span>
+        </h1>
+        <p class="text-lg text-[#5a7a8a] max-w-2xl mx-auto">
+          Writing about AI, software engineering, and the things I'm learning while building.
+        </p>
+      </div>
+    </section>
+
+    <!-- Categories -->
+    {allCategories.length > 0 && (
+      <section class="px-4 sm:px-6 pb-8">
+        <div class="max-w-5xl mx-auto">
+          <div class="flex flex-wrap gap-2 justify-center">
+            <a
+              href="/blog"
+              class="px-4 py-2 rounded-full text-sm font-bold bg-[#4DA8D6] text-white"
+            >
+              All
+            </a>
+            {allCategories.map((category) => (
+              <a
+                href={`/blog/category/${getCategorySlug(category)}`}
+                class="px-4 py-2 rounded-full text-sm font-bold bg-[#E0F4FB] text-[#2E8BC0] hover:bg-[#7FCDEB] hover:text-white transition-colors"
+              >
+                {category}
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- Posts Grid -->
+    <section class="py-8 px-4 sm:px-6">
+      <div class="max-w-5xl mx-auto">
+        {posts.length > 0 ? (
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {posts.map((post) => (
+              <a
+                href={`/blog/${post.slug}`}
+                class="group block bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 border border-[#B8D4F1]/20"
+              >
+                {post.data.heroImage ? (
+                  <div class="aspect-video overflow-hidden">
+                    <img
+                      src={post.data.heroImage}
+                      alt={post.data.title}
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                ) : (
+                  <div class="aspect-video bg-gradient-to-br from-[#E0F4FB] to-[#B8D4F1] flex items-center justify-center">
+                    <span class="text-5xl opacity-60">📝</span>
+                  </div>
+                )}
+                <div class="p-6">
+                  <div class="flex flex-wrap gap-2 mb-3">
+                    {post.data.categories.slice(0, 2).map((category) => (
+                      <span class="px-2 py-0.5 bg-[#E0F4FB] text-[#2E8BC0] text-xs font-bold rounded-full">
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                  <h2 class="text-lg font-extrabold text-[#1a2833] mb-2 group-hover:text-[#4DA8D6] transition-colors line-clamp-2">
+                    {post.data.title}
+                  </h2>
+                  <p class="text-sm text-[#5a7a8a] mb-3 line-clamp-2">
+                    {post.data.description}
+                  </p>
+                  <div class="flex items-center justify-between text-xs text-[#5a7a8a]/70">
+                    <time datetime={post.data.pubDate.toISOString()}>
+                      {formatDate(post.data.pubDate)}
+                    </time>
+                    <span>By {post.data.author}</span>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div class="text-center py-24">
+            <div class="text-6xl mb-4">📝</div>
+            <h2 class="text-2xl font-extrabold text-[#1a2833] mb-2">No posts yet</h2>
+            <p class="text-[#5a7a8a]">Check back soon for new content!</p>
+          </div>
+        )}
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t-2 border-[#B8D4F1]/30 bg-[#f4fbfd]/50 mt-12">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl animate-wave inline-block">👋</span>
+            <span class="text-[#5a7a8a]">Made with <span class="text-[#FF6B6B]">♥</span> by <a href="https://github.com/wdh-moses" target="_blank" rel="noopener" class="font-bold text-[#4DA8D6]">Moses</a></span>
+          </div>
+          <div class="flex items-center gap-6 text-sm text-[#5a7a8a]">
+            <a href="/" class="hover:text-[#4DA8D6] transition-colors font-semibold">Home</a>
+            <a href="/blog" class="hover:text-[#4DA8D6] transition-colors font-semibold">Blog</a>
+            <a href="https://heybible.org" target="_blank" rel="noopener" class="hover:text-[#4DA8D6] transition-colors font-semibold">Hey Bible</a>
+          </div>
+        </div>
+        <div class="text-center mt-6 text-xs text-[#5a7a8a]/60">
+          A project of <a href="https://workingdevshero.com" class="hover:text-[#4DA8D6]">Working Dev's Hero LLC</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>
