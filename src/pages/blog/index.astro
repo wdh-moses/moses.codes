@@ -92,10 +92,10 @@ function getCategorySlug(category: string): string {
                 href={`/blog/${post.slug}`}
                 class="group block bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 border border-[#B8D4F1]/20"
               >
-                {post.data.heroImage ? (
+                {post.data.heroImage || post.data.image ? (
                   <div class="aspect-video overflow-hidden">
                     <img
-                      src={post.data.heroImage}
+                      src={post.data.image || post.data.heroImage}
                       alt={post.data.title}
                       class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
