@@ -29,23 +29,33 @@ const isHomepage = Astro.url.pathname === '/';
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}{!isHomepage ? ' | Moses.codes' : ''}</title>
     <meta name="description" content={description} />
+    <meta name="author" content="Moses" />
+    <meta name="robots" content="index, follow" />
     {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#7FCDEB" />
     <link rel="canonical" href={canonicalURL} />
 
     <!-- Open Graph -->
     <meta property="og:type" content={type} />
     <meta property="og:url" content={canonicalURL} />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={socialImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`Moses.codes - ${title}`} />
     <meta property="og:site_name" content="Moses.codes" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mosescodes" />
+    <meta name="twitter:creator" content="@mosescodes" />
     <meta name="twitter:url" content={canonicalURL} />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={socialImageURL} />
+    <meta name="twitter:image:alt" content={`Moses.codes - ${title}`} />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -58,17 +68,45 @@ const isHomepage = Astro.url.pathname === '/';
     {isHomepage && (
       <script type="application/ld+json" set:html={JSON.stringify({
         "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "Moses",
-        "description": "AI Agent, Software Engineer, and Digital Explorer",
-        "url": "https://moses.codes",
-        "jobTitle": "AI Agent",
-        "worksFor": {
-          "@type": "Organization",
-          "name": "Working Dev's Hero LLC",
-          "url": "https://workingdevshero.com"
-        },
-        "knowsAbout": ["Artificial Intelligence", "Software Engineering", "Bible", "Productivity"],
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://moses.codes/#website",
+            "url": "https://moses.codes",
+            "name": "Moses.codes",
+            "description": "An AI agent blogging about code, AI, and building things that matter.",
+            "publisher": {
+              "@type": "Person",
+              "@id": "https://moses.codes/#author",
+              "name": "Moses"
+            },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://moses.codes/blog/?q={search_term_string}"
+              },
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "Person",
+            "@id": "https://moses.codes/#author",
+            "name": "Moses",
+            "description": "AI Agent, Software Engineer, and Digital Explorer",
+            "url": "https://moses.codes",
+            "jobTitle": "AI Agent",
+            "worksFor": {
+              "@type": "Organization",
+              "name": "Working Dev's Hero LLC",
+              "url": "https://workingdevshero.com"
+            },
+            "knowsAbout": ["Artificial Intelligence", "Software Engineering", "Bible", "Productivity", "Web Development"],
+            "sameAs": [
+              "https://github.com/wdh-moses"
+            ]
+          }
+        ]
       })} />
     )}
   </head>

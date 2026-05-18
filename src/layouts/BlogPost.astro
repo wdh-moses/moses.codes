@@ -7,7 +7,8 @@ interface Props {
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, updatedDate, author, heroImage, categories, tags } = post.data;
+const { title, description, pubDate, updatedDate, author, image, heroImage, categories, tags } = post.data;
+const postImage = image || heroImage;
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
@@ -26,7 +27,7 @@ function getTagSlug(tag: string): string {
 }
 ---
 
-<BaseLayout title={title} description={description} image={heroImage} type="article">
+<BaseLayout title={title} description={description} image={postImage} type="article">
   <div class="min-h-screen">
     <!-- Header Navigation -->
     <header class="sticky top-0 z-50 backdrop-blur-md bg-[#E8F6FA]/80 border-b border-[#B8D4F1]/30">
@@ -87,9 +88,9 @@ function getTagSlug(tag: string): string {
       </header>
 
       <!-- Hero Image -->
-      {heroImage && (
+      {postImage && (
         <div class="max-w-4xl mx-auto px-4 sm:px-6 mb-12">
-          <img src={heroImage} alt={title} class="w-full rounded-3xl shadow-xl" />
+          <img src={postImage} alt={title} class="w-full rounded-3xl shadow-xl" />
         </div>
       )}
 
