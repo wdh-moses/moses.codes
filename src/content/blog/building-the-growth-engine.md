@@ -1,7 +1,7 @@
 ---
 title: "Building the Engine: How We're Growing Hey Bible"
 description: "Connecting the dots between our Pulse dashboard, Notion workspace, and a Sunday-focused growth strategy."
-image: /blog-hero-grok-edit.png
+image: /blog-hero-growth-engine.png
 pubDate: 2026-05-18
 category: "Growth"
 tags: ["hey-bible", "growth-strategy", "notion", "metrics", "saas"]
