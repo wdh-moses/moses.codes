@@ -10,9 +10,9 @@ tags: ["hey-bible", "podcast", "season-2", "venice", "grok-imagine", "ken-burns"
 
 [Season 1 of the Hey Bible Podcast](/blog/the-story-of-the-hey-bible-podcast) is still doing its thing: ElevenLabs **Bill**, verse-by-verse MP3s, books dropping on a steady cadence, free on [✝️.fm](https://✝️.fm) / Spotify / Apple. That story hasn’t ended.
 
-**Season 2** is the parallel track we’ve been quietly building next to it. Same free WEB text, same “press play and listen” mission — but a warmer HD narrator, classical oil-painting chapter art, and full chapter **video** with slow Ken Burns motion timed to the verses. Public S2 release stays gated until S1 finishes all 66 books. Production, though, is already deep into Genesis.
+**Season 2** is the parallel track we’ve been quietly building next to it. Same free WEB text, same “press play and listen” mission — but a warmer HD narrator, classical oil-painting chapter art, and full chapter **video** with slow Ken Burns motion timed to the verses. Public S2 release stays gated until S1 finishes all 66 books (`release_gate: blocked_until_season1_complete` in the S2 progress file). Production, though, is already deep into Genesis: as of this writing the cursor sits past Genesis 40 with **1,240+** verse files on disk and matching chapter videos for everything that’s been stitched so far.
 
-If you want the lighter product-facing cut, it’s on the [Hey Bible blog](https://heybible.org/blog/behind-the-scenes-season-2). This post is the longer workshop version.
+If you want the lighter product-facing cut, it’s on the [Hey Bible blog](https://heybible.org/blog/behind-the-scenes-season-2). This post is the longer workshop version — more paths, more ffmpeg, fewer marketing slides.
 
 ## A real chapter, not a mockup
 
@@ -24,58 +24,118 @@ We’re far enough along to share actual output — not a mood board.
 
 ![Genesis 1 oil plate](/blog-s2-genesis1-plate.webp)
 
-Compared with Season 1, the shape of the work changed. S1 is Bill via Venice Turbo, cover art and social stills, no chapter video, and releases that are already live. S2 is **MiniMax HD · DeepVoiceMan** via Venice, **multi-plate oil stills per chapter** from Grok Imagine, **verse-timed Ken Burns** chapter MP4s, and a deliberate split into two nightly jobs — audio first, then photos and video. S2 ships after S1 clears the finish line; until then we just keep building inventory.
+Genesis 1’s finished cut is a good mental model for the whole system. The chapter audio is a stitch of thirty-one individual verse MP3s. The picture side is **ten oil plates**, not one poster held for four minutes — each plate covers a verse-boundary chunk of roughly 18–30 seconds. Chunk one is verses 1–5 (~29.6s); the last is verses 30–31 (~19.4s). When you watch the preview, every time the painting “changes,” you’re crossing one of those chunk boundaries.
+
+Compared with Season 1, the shape of the work changed. S1 is Bill via Venice Turbo, cover art and social stills, no chapter video, and releases that are already live. S2 is **MiniMax HD · DeepVoiceMan** via Venice (`tts-minimax-speech-02-hd`), **multi-plate oil stills per chapter** from Grok Imagine (`grok-imagine-image-quality`), **verse-timed Ken Burns** chapter MP4s, and a deliberate split into two nightly jobs — audio first, then photos and video. We briefly tried another MiniMax voice earlier in S2 and archived that audio when we locked DeepVoiceMan; the progress file still remembers the switch so we don’t accidentally mix voices mid-book.
 
 ## Two jobs so nothing blocks anything
 
-The biggest operational lesson from S1 (and from early S2 experiments) was: don’t put slow ffmpeg next to TTS in the same session and hope for the best. Long chapter muxes time out. Agent crons sometimes fail auth. So S2 splits the factory in half.
+The biggest operational lesson from S1 (and from early S2 experiments) was: don’t put slow ffmpeg next to TTS in the same session and hope for the best. Long chapter muxes time out. Agent crons sometimes fail auth halfway through a render. So S2 splits the factory in half and gives each half a schedule of its own.
 
-**Job A runs every evening around 7:00 PM ET.** It reads the progress cursor, pulls the next WEB verse texts, and calls Venice TTS — MiniMax Speech 02 HD, voice DeepVoiceMan. Each verse lands as its own permanent file:
+**Job A runs every evening around 7:00 PM ET.** It’s a Python batch (`generate-verses.py`) that reads a small JSON cursor — book, chapter, verse, completed count — and walks forward through the WEB. Default batch size is **300 verses** a night (overridable on the command line). For each verse it skips work if the MP3 already exists (idempotent restarts are free), otherwise it calls Venice’s audio API with model `tts-minimax-speech-02-hd` and voice **DeepVoiceMan**, writes the bytes to disk, and only then advances the cursor. Rate limits get exponential backoff; a failed verse doesn’t poison the whole batch.
+
+Each successful verse lands as its own permanent file:
 
 ```
 audio/verses/{book}/{chapter}/{book}-{chapter}-{verse}-web.mp3
 ```
 
-Same permanence rule as Season 1: **verse files are the library.** We don’t throw them away after stitching. When a chapter’s verses are all present, ffmpeg concatenates them into a chapter MP3 under `audio/chapters/…`, the cursor advances, and we move on. Batches are large — hundreds of verses a day when things are healthy.
+Same permanence rule as Season 1: **verse files are the library.** We don’t throw them away after stitching. When the last verse of a chapter lands, the script concatenates that chapter’s verse files into a chapter MP3 with ffmpeg:
 
-**Job B starts about thirty minutes later (~7:30 PM ET)** as a durable script. No LLM required, which is intentional. For every chapter that already has audio but is still missing video, it groups verses into roughly **18–30 second** chunks on verse boundaries, paints one **oil-painting still** per chunk with **xAI Grok Imagine**, renders a Ken Burns segment on each still, crossfades the segments, muxes the chapter audio underneath, and writes:
+```
+audio/chapters/{book}/{book}-{chapter}-web.mp3
+```
+
+Chapter audio is a derived artifact. The verses are the source of truth. That matters later when we re-time video chunks — durations always come from probing the verse files, not from guessing.
+
+**Job B starts about thirty minutes later (~7:30 PM ET).** This one used to be an LLM agent session, which sounded clever until OAuth tokens expired mid-Genesis and tool loops burned an hour without writing a single MP4. It’s now a **script-only cron**: load `XAI_API_KEY`, run `run-catchup-media.py`, print a short summary. No chat model required.
+
+The catch-up script scans a book (Genesis today) for chapters that have chapter audio but are missing a video larger than ~100KB. For each gap it shells into `generate-verse-timed-chapter-video.py`. If a chapter’s `chunks.json` exists and **every** listed plate file is present and non-trivial, it passes `--skip-images` and only re-renders motion. If the plate set is incomplete (we learned this the hard way on Genesis 36 — four jpgs and a JSON is not “done”), it regenerates images instead of crashing halfway through Ken Burns. Finished videos are never rebuilt unless you force them.
+
+End to end, Job B’s contract is simple: audio in, chapter MP4 out:
 
 ```
 video/chapters/{book}/{book}-{chapter}.mp4
 ```
 
-As of this writing, Genesis audio **1–40** and the matching chapter videos are done on the production box. The media job only fills gaps; it doesn’t regenerate finished chapters for fun.
-
 | Layer | What we use |
 |-------|-------------|
 | Verse text | Hey Bible / WEB |
-| TTS | Venice → MiniMax HD (DeepVoiceMan) |
-| Oil stills | xAI Grok Imagine |
-| Motion + mux | ffmpeg (`zoompan`, `gblur`, `xfade`) |
-| Orchestration | Hermes cron: audio job + media script |
+| TTS | Venice → MiniMax HD (`tts-minimax-speech-02-hd`, DeepVoiceMan) |
+| Oil stills | xAI Grok Imagine (`grok-imagine-image-quality`) |
+| Motion + mux | ffmpeg (`zoompan`, `gblur`, `xfade`, `scale=lanczos`) |
+| Orchestration | Hermes cron: 7:00 PM audio · 7:30 PM media script |
 | Human social review | Automate It (Hey Bible workspace) |
 
 ## Why it looks like a gallery, not a trailer
 
-We tried photoreal landscapes. They felt like stock footage sitting on top of Scripture. The lock we kept is quieter: classical European religious **oil painting** (old-master / baroque–romantic feel), wide **16:9** native plates, **no frames, mats, or borders**, content-aware prompts that include the verse text for that chunk, and a soft landscape fallback if a prompt trips moderation. “Museum gallery quiet” beats “cinematic CGI Bible movie” for this show.
+We tried photoreal landscapes. They felt like stock footage sitting on top of Scripture — too “travel channel,” not enough “this was made on purpose.” The lock we kept is quieter: classical European religious **oil painting** (old-master / baroque–romantic feel), wide **16:9** native plates, **no frames, mats, or borders**, and prompts that actually include the verse text for that chunk so Jacob’s ladder doesn’t get a generic sunset. If xAI moderates a plate, the script retries with a safer landscape-only prompt and keeps going rather than failing the whole chapter. “Museum gallery quiet” beats “cinematic CGI Bible movie” for this show.
 
 ## How a still becomes a chapter video
 
-This is the mechanical heart of Job B, and it’s where most of the craft is.
+This is the mechanical heart of Job B, and it’s where most of the craft (and most of the CPU) lives.
 
-First we **chunk the chapter on verse boundaries**. Probe each verse MP3 duration, walk verses in order, and pack them into chunks until the next verse would push us past ~30 seconds (with a soft floor around 18s). Picture changes only when a verse ends — never mid-word.
+### Chunking on verse boundaries
 
-Each chunk gets a Grok Imagine still under `photos/chapters/{book}/{book}-{n}-chunks/`, plus a small `chunks.json` that remembers verse ranges and durations.
+We probe every verse MP3 with `ffprobe`, then walk verses in order packing them into chunks. Targets are **CHUNK_MIN ≈ 18s** and **CHUNK_MAX ≈ 30s**. A new chunk starts only when adding the next verse would overflow the max (or when the chapter ends). Picture changes only on **verse boundaries** — never mid-word, never on a fixed wall-clock grid that ignores the narration. Each chunk record looks roughly like:
 
-Then we animate. Naive zoompan recipes jitter; the locked stack is pickier. Upscale the still onto a large square working plate (~**4800px**). Zoom **1.0 → 1.45** with a **smoothstep** ease (`u²(3−2u)`), not a linear ramp. Compute pan room from the **constant max zoom** so x and y don’t fight the live zoom value. Render zoompan at **60 fps**, add a light **gblur (σ≈0.45)**, then downsample to **30 fps** at 1280×720 — that sub-frame temporal average hides a lot of one-pixel crawl. Segments are silent video at this stage; audio comes later. Encode H.264 for the intermediates, concatenate with short **xfade** dissolves (~0.75s), mux the stitched chapter MP3 underneath, and write the final chapter MP4 for later packaging (book-level concat, YouTube masters, and so on).
+```json
+{
+  "verses": [1, 2, 3, 4, 5],
+  "start_v": 1,
+  "end_v": 5,
+  "duration": 29.592,
+  "image": "…/genesis-1-chunks/chunk-01.jpg"
+}
+```
 
-Still → smooth KB segment → xfade reel → + audio. That’s the whole picture path.
+That metadata is written to `chunks.json` beside the plates so a later `--skip-images` run can rebuild motion without re-prompting Grok.
 
-## What we’re not doing yet
+### Painting the plates
 
-We’re not shipping S2 to Spotify or Apple while S1 is incomplete. We’re not overwriting S1 R2 objects or feed GUIDs. We’re not doing public YouTube book drops for S2. When S1 finishes the 66, S2 can land on the same show with proper `itunes:season` metadata and new GUIDs — without stepping on the Season 1 library people are already listening to.
+For each chunk we build an oil-painting prompt from the verse span, call Grok Imagine at quality tier, and normalize the result to JPEG on disk (`chunk-01.jpg`, `chunk-02.jpg`, …). URL sidecars are kept for debugging. Existing good plates are skipped unless `--force-images` is set — image gen is the expensive, rate-limited step; we don’t redo it because Ken Burns settings changed.
 
-Splitting audio and media wasn’t just neat architecture. Early attempts mixed TTS and long renders in one agent session; timeouts and flaky OAuth made that miserable. Now audio stays a fast, idempotent batch, media is a script-only cron that can grind overnight, and a moderated still can retry with a safer prompt without blocking tomorrow’s verses.
+### The ultra-smooth Ken Burns stack
+
+Naive `zoompan` recipes jitter. Ours stacks several anti-crawl measures that we locked after a lot of bad sample clips:
+
+1. **Large working plate.** Scale/crop the still onto a **4800×4800** square with lanczos before any motion. More pixels in → less crawl when we zoom.
+2. **Zoom 1.0 → 1.45** with a **smoothstep** ease, not linear. If `u = on/frames`, ease is `u*u*(3-2*u)`. Linear zoom feels mechanical; smoothstep eases the start and end.
+3. **Pan room from constant max zoom.** x/y are computed as `(iw - iw/1.45) * fraction`, **not** from the live zoom value. When pan depends on the instantaneous zoom, the crop window breathes and you get a drunken float.
+4. **Four alternating pan directions** (cycle per segment) so consecutive plates don’t all drift the same way.
+5. **60 fps supersample → light gblur → 30 fps delivery.** zoompan renders at 60fps into a 2560×1440 intermediate, `gblur=sigma=0.45` softens residual 1px shimmer, then lanczos down to **1280×720@30**. That temporal average is doing more work than it sounds.
+6. **Silent segment encode** first: H.264 main, yuv420p, preset medium, **CRF 19**, no audio. Audio is a separate concern.
+
+In filter-graph terms, one segment looks like:
+
+```
+scale=4800:4800:force_original_aspect_ratio=increase:flags=lanczos,
+crop=4800:4800,
+zoompan=z='1+0.45*smoothstep':x='…':y='…':d=N60:s=2560x1440:fps=60,
+gblur=sigma=0.45,
+scale=1280:720:flags=lanczos,
+fps=30,setsar=1,format=yuv420p
+```
+
+### Crossfade, then mux
+
+Segments are concatenated with ffmpeg **xfade** dissolves (**0.75s** fades). Offsets are computed from probed segment durations so the fades land cleanly even when chunks aren’t identical lengths. The silent reel is then muxed under the chapter MP3 — map video from the reel, audio from the stitch, write the final chapter MP4 (another H.264 pass around CRF 20 for the combined file). Book-level concat and YouTube masters come later; the chapter file is the durable unit Job B is responsible for.
+
+Still → smooth KB segment → xfade reel → + chapter audio. That’s the whole picture path.
+
+A long chapter is not cheap. Genesis 36 needed **thirteen** plates and thirteen KB renders before mux; wall-clock is dominated by zoompan, not by the API calls. That’s exactly why media is allowed to grind after audio has already gone to bed.
+
+## Idempotency, failure modes, and the scars we kept
+
+A few production details that don’t show up in a pretty diagram:
+
+- **Skip if present.** Verses, plates, and videos all short-circuit when a good file already exists. Catch-up is safe to re-run every night.
+- **Incomplete plate sets are not “skip-images.”** Early catch-up treated “any jpg in the folder” as done. Genesis 36 had four plates and a full `chunks.json` claiming thirteen — Ken Burns then died on a missing `chunk-05.jpg`. The guard now checks that every index in the JSON has a real file above a minimum size.
+- **Moderation retries** stay inside the chapter; one blocked prompt doesn’t fail the book.
+- **Release gate** is a hard flag. Nothing in S2 is allowed to publish over S1’s R2 objects or recycle S1 feed GUIDs. When S1 finishes the 66, S2 can land on the same show with proper `itunes:season` metadata and new GUIDs.
+- **Agent crons for long ffmpeg were a mistake.** OAuth 403s and max-iteration tool loops burned whole evenings. Script-only media cron was the fix; the LLM stays in the loop for writing and review, not for babysitting zoompan.
+
+We’re not shipping S2 to Spotify or Apple while S1 is incomplete. We’re not doing public YouTube book drops for S2 yet. We *are* filling Genesis so launch isn’t a cold start.
 
 ## Where to go from here
 
@@ -83,4 +143,4 @@ Splitting audio and media wasn’t just neat architecture. Early attempts mixed 
 - Listen to S1 now: [https://✝️.fm](https://✝️.fm)
 - Lighter product post: [heybible.org](https://heybible.org/blog/behind-the-scenes-season-2)
 
-Season 1 keeps releasing books. Season 2 keeps painting Genesis. Same mission — clearer audio, living pictures, free for everyone. One chapter at a time.
+Season 1 keeps releasing books. Season 2 keeps painting Genesis — three hundred verses a night, then whatever chapter videos the audio has earned. Same mission: clearer audio, living pictures, free for everyone. One chapter at a time.
