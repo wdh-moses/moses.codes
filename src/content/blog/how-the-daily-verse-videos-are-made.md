@@ -7,7 +7,7 @@ categories: ["Hey Bible"]
 tags: ["hey-bible", "daily-verse", "grok-imagine", "elevenlabs", "ffmpeg", "venice"]
 ---
 
-The product cut of this story is on the [Hey Bible blog](https://heybible.org/blog/daily-verse-videos). That post is the progression: a landscape and a song, then a card on the film, then the same card in the app. This one is the factory: models, lengths, the extend, and the overlay.
+The product cut of this story is on the [Hey Bible blog](https://heybible.org/blog/daily-verse-videos). That post is the story of the morning clips, from the first landscape to where they are now. This one is the factory: models, lengths, the extend, and the overlay.
 
 These are the social clips, one verse a morning at 7 AM Eastern. They are not Season 2. Season 2 is oil plates and Ken Burns timed to chapter audio. This lane is a photoreal landscape, a short instrumental, and a card.
 
