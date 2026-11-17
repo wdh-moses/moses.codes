@@ -78,4 +78,4 @@ The card flips in after about half a second. `@heybibleapp` sits bottom-right fo
 
 ## What stays out of the public post
 
-Model names, the 720p extend, the 50 MB cap, and this mux. The morning post on heybible.org says the clips got longer, the song changed, the card got quieter, and approved older clips were left alone. That is the true short version. This is the one you would need if you had to build the next one.
+Model names, the 50 MB cap, and this mux stay here. The morning post on heybible.org now says the finished clip ships around 720p, and that we are hoping for a 1080p extend at a price we can use every morning. It does not name the models.
